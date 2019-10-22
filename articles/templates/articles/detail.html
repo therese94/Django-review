@@ -5,18 +5,21 @@
 {% block container %}
 <h2>{{ article.title }}</h2>
 <p>{{ article.created_at }}</p>
+<p>작성자 : {{ article.user }}</p>
 <hr>
 <p>{{ article.content }}</p>
 <hr>
 {% if user.is_authenticated %}
+  {% if article.user == request.user %}
     <a href="{% url 'articles:update' article.pk %}">[수정하기]</a>
     <form action="{% url 'articles:delete' article.pk %}" method="post">
       {% csrf_token %}
       <button type="submit">삭제하기</button>
     </form>
-    {% else %}
-    <a href=" {% url 'accounts:login' %} ">수정/삭제하려면 로그인하세요</a>
   {% endif %}
+{% else %}
+    <a href=" {% url 'accounts:login' %} ">수정/삭제하려면 로그인하세요</a>
+{% endif %}
 
 
 <hr>
@@ -37,8 +40,11 @@
     <form action="{% url 'articles:comments_delete' article.pk comment.pk %}" method="post">
       {% csrf_token %}
       <span>{{ comment.content }} - {{ comment.created_at }}</span>
+      <p>작성자 : {{ comment.user }}</p>
       {% if user.is_authenticated %}
-        <button type="submit">삭제하기</button>
+        {% if comment.user == request.user %}
+          <button type="submit">삭제하기</button>
+        {% endif %}
       {% else %}
         <a href=" {% url 'accounts:login' %}">삭제하려면 로그인</a>
       {% endif %}

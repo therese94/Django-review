@@ -19,7 +19,7 @@ def detail(request, article_pk):
     # 사용자가 url 에 적어보낸 article_pk 를 통해 디테일 페이지를 보여준다.
     article = get_object_or_404(Article, pk=article_pk)
     comment_form = CommentForm()
-    comments = Comment.objects.all()
+    comments = article.comments.all()           # related_name 지정해줘서 이렇게 써도됨
     context = {
         'article': article,
         'comment_form': comment_form,
@@ -33,8 +33,10 @@ def create(request):
         # Article 을 생성해달라고 하는 요청
         form = ArticleForm(request.POST)
         if form.is_valid():
-            form.save()
-            return redirect('articles:index')
+            article = form.save(commit=False)
+            article.user = request.user
+            article.save()
+            return redirect('articles:detail', article.pk)
     else: # GET
         # Article 을 생성하기 위한 페이지를 달라고 하는 요청
         form = ArticleForm()
@@ -44,13 +46,16 @@ def create(request):
 @login_required
 def update(request, article_pk):
     article = get_object_or_404(Article, pk=article_pk)
-    if request.method == 'POST':
-        form = ArticleForm(request.POST, instance=article)
-        if form.is_valid():
-            form.save()
-            return redirect('articles:detail', article_pk)
-    else: # GET method
-        form = ArticleForm(instance=article)
+    if article.user == request.user:
+        if request.method == 'POST':
+            form = ArticleForm(request.POST, instance=article)
+            if form.is_valid():
+                form.save()
+                return redirect('articles:detail', article_pk)
+        else: # GET method
+            form = ArticleForm(instance=article)
+    else:
+        return redirect('articles:index')
     context = {'form': form}
     return render(request, 'articles/update.html', context)
 
@@ -60,10 +65,12 @@ def delete(request, article_pk):
     if request.user.is_authenticated:
         # article_pk 에 맞는 article 을 꺼낸다. 삭제한다.
         article = get_object_or_404(Article, pk=article_pk)
-        article.delete()
-        return redirect('articles:index')
-    else:
-        return redirect('articles:detail', article_pk)
+        if article.user == request.user:
+            article.delete()
+        else:
+            return redirect('articles:detail', article_pk)
+    return redirect('articles:index')
+    
 
 
 # 댓글을 생성하는 요청을 받는다.
@@ -73,6 +80,7 @@ def comments_create(request, article_pk):
     if form.is_valid():
         comment = form.save(commit=False)
         comment.article_id = article_pk
+        comment.user = request.user
         comment.save()
     return redirect('articles:detail', article_pk)
 
@@ -81,7 +89,10 @@ def comments_create(request, article_pk):
 def comments_delete(request, article_pk, comment_pk):
     if request.user.is_authenticated:
         comment = get_object_or_404(Comment, pk=comment_pk)
-        comment.delete()
-        return redirect('articles:detail', article_pk)
+        if comment.user == request.user:
+            comment.delete()
+            return redirect('articles:detail', article_pk)
+        else:
+            return redirect('articles:detail', article_pk)
     else:
         return HttpResponse('You are Unauthorized', status=401)
